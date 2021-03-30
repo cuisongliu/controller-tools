@@ -338,7 +338,9 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 		}
 	}
 
-	versionedWebhooks := make(map[string][]interface{}, len(supportedWebhookVersions))
+	mutatingWebhooks := make(map[string][]interface{}, 0)
+	validatingWebhooks := make(map[string][]interface{}, 0)
+
 	for _, version := range supportedWebhookVersions {
 		if cfgs, ok := mutatingCfgs[version]; ok {
 			objRaw := &admissionregv1.MutatingWebhookConfiguration{
@@ -364,13 +366,13 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 						return fmt.Errorf("AdmissionReviewVersions is mandatory for v1 {Mutating,Validating}WebhookConfiguration")
 					}
 				}
-				versionedWebhooks[version] = append(versionedWebhooks[version], objRaw)
+				mutatingWebhooks[version] = append(mutatingWebhooks[version], objRaw)
 			} else {
 				conv, err := MutatingWebhookConfigurationAsVersion(objRaw, schema.GroupVersion{Group: admissionregv1.SchemeGroupVersion.Group, Version: version})
 				if err != nil {
 					return err
 				}
-				versionedWebhooks[version] = append(versionedWebhooks[version], conv)
+				mutatingWebhooks[version] = append(mutatingWebhooks[version], conv)
 			}
 		}
 
@@ -398,23 +400,34 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 						return fmt.Errorf("AdmissionReviewVersions is mandatory for v1 {Mutating,Validating}WebhookConfiguration")
 					}
 				}
-				versionedWebhooks[version] = append(versionedWebhooks[version], objRaw)
+				validatingWebhooks[version] = append(validatingWebhooks[version], objRaw)
 			} else {
 				conv, err := ValidatingWebhookConfigurationAsVersion(objRaw, schema.GroupVersion{Group: admissionregv1.SchemeGroupVersion.Group, Version: version})
 				if err != nil {
 					return err
 				}
-				versionedWebhooks[version] = append(versionedWebhooks[version], conv)
+				validatingWebhooks[version] = append(validatingWebhooks[version], conv)
 			}
 		}
 	}
 
-	for k, v := range versionedWebhooks {
+	for k, v := range mutatingWebhooks {
 		var fileName string
 		if k == defaultWebhookVersion {
-			fileName = fmt.Sprintf("manifests.yaml")
+			fileName = fmt.Sprintf("manifests-mutating.yaml")
 		} else {
-			fileName = fmt.Sprintf("manifests.%s.yaml", k)
+			fileName = fmt.Sprintf("manifests-mutating.%s.yaml", k)
+		}
+		if err := ctx.WriteYAML(fileName, v...); err != nil {
+			return err
+		}
+	}
+	for k, v := range validatingWebhooks {
+		var fileName string
+		if k == defaultWebhookVersion {
+			fileName = fmt.Sprintf("manifests-validating.yaml")
+		} else {
+			fileName = fmt.Sprintf("manifests-validating.%s.yaml", k)
 		}
 		if err := ctx.WriteYAML(fileName, v...); err != nil {
 			return err

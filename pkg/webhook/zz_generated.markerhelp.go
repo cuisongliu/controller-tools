@@ -91,6 +91,15 @@ func (Generator) Help() *markers.DefinitionHelp {
 			Summary: "generates (partial) {Mutating,Validating}WebhookConfiguration objects.",
 			Details: "",
 		},
-		FieldHelp: map[string]markers.DetailedHelp{},
+		FieldHelp: map[string]markers.DetailedHelp{
+			"MutatingName": markers.DetailedHelp{
+				Summary: "specifies the webhook mutating configuration name,if empty default is mutating-webhook-configuration.",
+				Details: "",
+			},
+			"ValidatingName": markers.DetailedHelp{
+				Summary: "specifies the webhook mutating configuration name,if empty default is validating-webhook-configuration.",
+				Details: "",
+			},
+		},
 	}
 }
