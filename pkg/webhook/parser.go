@@ -19,7 +19,6 @@ limitations under the License.
 //
 // The markers take the form:
 //
-//  +kubebuilder:webhook:webhookVersions=<[]string>,failurePolicy=<string>,matchPolicy=<string>,groups=<[]string>,resources=<[]string>,verbs=<[]string>,versions=<[]string>,name=<string>,path=<string>,mutating=<bool>,sideEffects=<string>,admissionReviewVersions=<[]string>
 package webhook
 
 import (
@@ -94,8 +93,9 @@ type Config struct {
 	Versions []string
 
 	// Name indicates the name of this webhook configuration. Should be a domain with at least three segments separated by dots
-	Name string
-
+	Name            string
+	ObjectSelect    []string `marker:"objectSelect,optional"`
+	NamespaceSelect []string `marker:"namespaceSelect,optional"`
 	// Path specifies that path that the API server should connect to this webhook on. Must be
 	// prefixed with a '/validate-' or '/mutate-' depending on the type, and followed by
 	// $GROUP-$VERSION-$KIND where all values are lower-cased and the periods in the group
@@ -152,6 +152,8 @@ func (c Config) ToMutatingWebhook() (admissionregv1.MutatingWebhook, error) {
 		MatchPolicy:             matchPolicy,
 		ClientConfig:            c.clientConfig(),
 		SideEffects:             c.sideEffects(),
+		ObjectSelector:          c.objectSelect(),
+		NamespaceSelector:       c.namespaceSelect(),
 		AdmissionReviewVersions: c.AdmissionReviewVersions,
 	}, nil
 }
@@ -174,6 +176,8 @@ func (c Config) ToValidatingWebhook() (admissionregv1.ValidatingWebhook, error) 
 		MatchPolicy:             matchPolicy,
 		ClientConfig:            c.clientConfig(),
 		SideEffects:             c.sideEffects(),
+		ObjectSelector:          c.objectSelect(),
+		NamespaceSelector:       c.namespaceSelect(),
 		AdmissionReviewVersions: c.AdmissionReviewVersions,
 	}, nil
 }
@@ -233,6 +237,24 @@ func (c Config) matchPolicy() (*admissionregv1.MatchPolicyType, error) {
 		return nil, fmt.Errorf("unknown value %q for matchPolicy", c.MatchPolicy)
 	}
 	return &matchPolicy, nil
+}
+
+// object select returns the object select for a webhook.
+func (c Config) objectSelect() *metav1.LabelSelector {
+	str := strings.Join(c.ObjectSelect, ",")
+	if lselect, err := metav1.ParseToLabelSelector(str); err == nil {
+		return lselect
+	}
+	return nil
+}
+
+// object select returns the object select for a webhook.
+func (c Config) namespaceSelect() *metav1.LabelSelector {
+	str := strings.Join(c.NamespaceSelect, ",")
+	if lselect, err := metav1.ParseToLabelSelector(str); err == nil {
+		return lselect
+	}
+	return nil
 }
 
 // clientConfig returns the client config for a webhook.
