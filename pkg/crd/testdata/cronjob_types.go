@@ -38,7 +38,10 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+const DefaultRefValue = "defaultRefValue"
+
 // CronJobSpec defines the desired state of CronJob
+// +kubebuilder:validation:XValidation:rule="has(oldSelf.forbiddenInt) || !has(self.forbiddenInt)",message="forbiddenInt is not allowed",fieldPath=".forbiddenInt",reason="FieldValueForbidden"
 type CronJobSpec struct {
 	// The schedule in Cron format, see https://en.wikipedia.org/wiki/Cron.
 	Schedule string `json:"schedule"`
@@ -115,9 +118,9 @@ type CronJobSpec struct {
 	// +kubebuilder:example={a,b}
 	DefaultedSlice []string `json:"defaultedSlice"`
 
-	// This tests that object defaulting can be performed.
-	// +kubebuilder:default={{nested: {foo: "baz", bar: true}},{nested: {bar: false}}}
-	// +kubebuilder:example={{nested: {foo: "baz", bar: true}},{nested: {bar: false}}}
+	// This tests that slice and object defaulting can be performed.
+	// +kubebuilder:default={{nested: {foo: "baz", bar: true}},{nested: {foo: "qux", bar: false}}}
+	// +kubebuilder:example={{nested: {foo: "baz", bar: true}},{nested: {foo: "qux", bar: false}}}
 	DefaultedObject []RootObject `json:"defaultedObject"`
 
 	// This tests that empty slice defaulting can be performed.
@@ -131,6 +134,39 @@ type CronJobSpec struct {
 	// This tests that an empty object defaulting can be performed on an object.
 	// +kubebuilder:default={}
 	DefaultedEmptyObject EmpiableObject `json:"defaultedEmptyObject"`
+
+	// This tests that kubebuilder defaulting takes precedence.
+	// +kubebuilder:default="kubebuilder-default"
+	// +default="kubernetes-default"
+	DoubleDefaultedString string `json:"doubleDefaultedString"`
+
+	// This tests that primitive defaulting can be performed.
+	// +default="forty-two"
+	KubernetesDefaultedString string `json:"kubernetesDefaultedString"`
+
+	// This tests that slice defaulting can be performed.
+	// +default=["a","b"]
+	KubernetesDefaultedSlice []string `json:"kubernetesDefaultedSlice"`
+
+	// This tests that slice and object defaulting can be performed.
+	// +default=[{"nested": {"foo": "baz", "bar": true}},{"nested": {"foo": "qux", "bar": false}}]
+	KubernetesDefaultedObject []RootObject `json:"kubernetesDefaultedObject"`
+
+	// This tests that empty slice defaulting can be performed.
+	// +default=[]
+	KubernetesDefaultedEmptySlice []string `json:"kubernetesDefaultedEmptySlice"`
+
+	// This tests that an empty object defaulting can be performed on a map.
+	// +default={}
+	KubernetesDefaultedEmptyMap map[string]string `json:"kubernetesDefaultedEmptyMap"`
+
+	// This tests that an empty object defaulting can be performed on an object.
+	// +default={}
+	KubernetesDefaultedEmptyObject EmpiableObject `json:"kubernetesDefaultedEmptyObject"`
+
+	// This tests that use of +default=ref(...) doesn't break generation
+	// +default=ref(DefaultRefValue)
+	KubernetesDefaultedRef string `json:"kubernetesDefaultedRef,omitempty"`
 
 	// This tests that pattern validator is properly applied.
 	// +kubebuilder:validation:Pattern=`^$|^((https):\/\/?)[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/?))$`
@@ -187,6 +223,22 @@ type CronJobSpec struct {
 	// This tests that type references are properly flattened
 	// +kubebuilder:validation:optional
 	JustNestedObject *JustNestedObject `json:"justNestedObject,omitempty"`
+
+	// This tests explicitly optional kubebuilder fields
+	// +kubebuilder:validation:Optional
+	ExplicitlyOptionalKubebuilder string `json:"explicitlyOptionalKubebuilder"`
+
+	// This tests explicitly optional kubernetes fields
+	// +optional
+	ExplicitlyOptionalKubernetes string `json:"explicitlyOptionalKubernetes"`
+
+	// This tests explicitly required kubebuilder fields
+	// +kubebuilder:validation:Required
+	ExplicitlyRequiredKubebuilder string `json:"explicitlyRequiredKubebuilder,omitempty"`
+
+	// This tests explicitly required kubernetes fields
+	// +required
+	ExplicitlyRequiredKubernetes string `json:"explicitlyRequiredKubernetes,omitempty"`
 
 	// This tests that min/max properties work
 	MinMaxProperties MinMaxObject `json:"minMaxProperties,omitempty"`
@@ -247,6 +299,18 @@ type CronJobSpec struct {
 	// +kubebuilder:validation:XValidation:rule="true"
 	StringWithEvenLength string `json:"stringWithEvenLength,omitempty"`
 
+	// Test of the expression-based validation with messageExpression marker.
+	// +kubebuilder:validation:XValidation:rule="self.size() % 2 == 0",messageExpression="'Length has to be even but is ' + len(self.stringWithEvenLengthAndMessageExpression) + ' instead'"
+	StringWithEvenLengthAndMessageExpression string `json:"stringWithEvenLengthAndMessageExpression,omitempty"`
+
+	// Test of the expression-based validation on both field and type.
+	// +kubebuilder:validation:XValidation:rule="self.startsWith('good-')",message="must have good prefix"
+	StringWithEvenLengthAndGoodPrefix StringEvenType `json:"stringWithEvenLengthAndGoodPrefix,omitempty"`
+
+	// Test that we can add a forbidden field using XValidation Reason and FieldPath.
+	// The validation is applied to the spec struct itself and not the field.
+	ForbiddenInt int `json:"forbiddenInt,omitempty"`
+
 	// Checks that fixed-length arrays work
 	Array [3]int `json:"array,omitempty"`
 
@@ -278,6 +342,13 @@ type CronJobSpec struct {
 	// +kubebuilder:validation:items:XIntOrString
 	// +kubebuilder:validation:items:Pattern="^((100|[0-9]{1,2})%|[0-9]+)$"
 	IntOrStringArrayWithAPattern []*intstr.IntOrString `json:"intOrStringArrayWithAPattern,omitempty"`
+
+	// This tests that we can embed protocol correctly (without ending up with allOf).
+	// Context: https://github.com/kubernetes-sigs/controller-tools/issues/1027
+	// Defaults to "TCP".
+	// +optional
+	// +default="TCP"
+	Protocol corev1.Protocol `json:"protocol,omitempty" protobuf:"bytes,4,opt,name=protocol,casttype=Protocol"`
 }
 
 type ContainsNestedMap struct {
@@ -336,7 +407,6 @@ type MinMaxObject struct {
 }
 
 type EmpiableObject struct {
-
 	// +kubebuilder:default=forty-two
 	Foo string `json:"foo,omitempty"`
 	Bar string `json:"bar,omitempty"`
@@ -525,6 +595,10 @@ const (
 	// ReplaceConcurrent cancels currently running job and replaces it with a new one.
 	ReplaceConcurrent ConcurrencyPolicy = "Replace"
 )
+
+// StringEvenType is a type that includes an expression-based validation.
+// +kubebuilder:validation:XValidation:rule="self.size() % 2 == 0",message="must have even length"
+type StringEvenType string
 
 // CronJobStatus defines the observed state of CronJob
 type CronJobStatus struct {
